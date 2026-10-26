@@ -4,7 +4,7 @@
 # ==============================================================================
 
 # ETAPA 1: Build do Frontend (Vite + React)
-FROM node:20-alpine AS frontend-builder
+FROM node:22-alpine AS frontend-builder
 WORKDIR /build/frontend
 
 # Copia arquivos de dependência do frontend
@@ -18,7 +18,7 @@ RUN npm run build
 # ==============================================================================
 # ETAPA 2: Imagem Final de Produção (Node.js Express + Frontend Estático)
 # ==============================================================================
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
