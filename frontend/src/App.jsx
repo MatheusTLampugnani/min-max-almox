@@ -1,0 +1,37 @@
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './modules/auth/useAuth.jsx';
+import { ToastProvider } from './components/ui/Toast.jsx';
+import { Header } from './components/layout/Header.jsx';
+import { ConsultaPage } from './modules/itens/ConsultaPage.jsx';
+import { SolicitacoesPage } from './modules/solicitacoes/SolicitacoesPage.jsx';
+import { HistoricoPage } from './modules/historico/HistoricoPage.jsx';
+import { DashboardPage } from './modules/dashboard/DashboardPage.jsx';
+import { AnaliseDistorcaoPage } from './modules/itens/AnaliseDistorcaoPage.jsx';
+
+export function App() {
+  return (
+    <AuthProvider>
+      <ToastProvider>
+        <BrowserRouter>
+          <div className="min-h-screen bg-videplast-bg flex flex-col text-videplast-dark">
+            <Header />
+            <main className="flex-1 pb-12">
+              <Routes>
+                <Route path="/" element={<ConsultaPage />} />
+                <Route path="/solicitacoes" element={<SolicitacoesPage />} />
+                <Route path="/historico" element={<HistoricoPage />} />
+                <Route path="/analise" element={<AnaliseDistorcaoPage />} />
+                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+
+            </main>
+          </div>
+        </BrowserRouter>
+      </ToastProvider>
+    </AuthProvider>
+  );
+}
+
+export default App;

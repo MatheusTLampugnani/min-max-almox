@@ -1,0 +1,57 @@
+# Dependências (Raiz, Backend e Frontend)
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Builds de produção
+frontend/dist/
+frontend/dist-ssr/
+frontend/.vite/
+
+# Variáveis de ambiente sensíveis (Chaves Supabase, senhas, tokens)
+.env
+.env.*
+.env.local
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
+!.env.example
+!backend/.env.example
+!frontend/.env.example
+
+# Planilhas com dados reais industriais e confidenciais da fábrica
+*.xlsx
+*.XLSX
+*.xls
+*.XLS
+*.csv
+*.CSV
+
+# Arquivos de IDE e editores
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Arquivos de sistema operacional
+.DS_Store
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+
+# Diretórios temporários
+temp/
+tmp/
+scratch/

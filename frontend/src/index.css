@@ -1,0 +1,107 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-videplast-brand: #E31E2D;
+  --color-videplast-primary: #DC3545;
+  --color-videplast-primary-hover: #BB2D3B;
+  --color-videplast-secondary: #6C757D;
+  --color-videplast-warning: #FFC107;
+  --color-videplast-success: #198754;
+  --color-videplast-dark: #1E293B;
+  --color-videplast-bg: #F8FAFC;
+  --color-videplast-card: #FFFFFF;
+  --color-videplast-border: #E2E8F0;
+}
+
+.dark {
+  --color-videplast-brand: #E31E2D;
+  --color-videplast-primary: #DC3545;
+  --color-videplast-primary-hover: #BB2D3B;
+  --color-videplast-secondary: #94A3B8;
+  --color-videplast-warning: #F59E0B;
+  --color-videplast-success: #10B981;
+  --color-videplast-dark: #F8FAFC;
+  --color-videplast-bg: #0F172A;
+  --color-videplast-card: #1E293B;
+  --color-videplast-border: #334155;
+}
+
+/* Suavização de fontes em todos os navegadores */
+body {
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Evita zoom automático no Safari / Chrome Mobile ao focar inputs */
+@media screen and (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Foco visível acessível elegante */
+:focus-visible {
+  outline: 2px solid var(--color-videplast-primary);
+  outline-offset: 2px;
+}
+
+/* Animações customizadas */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slideUp {
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Scrollbars refinadas e discretas */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Respeita preferência do usuário de movimento reduzido */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,11 @@
+node_modules
+*/node_modules
+.git
+.github
+.vscode
+.gemini
+dist
+*/dist
+.env
+*.log
+npm-debug.log*
