@@ -99,7 +99,9 @@ export const itensRepository = {
           .order('nome', { ascending: true })
           .limit(5000);
 
-        if (!error && Array.isArray(data)) {
+        if (error) {
+          console.error('[SUPABASE ERROR LISTAR]', error.message, error.details || '', error.hint || '');
+        } else if (Array.isArray(data)) {
           return data.map(mapLinhaBanco);
         }
       } catch (err) {

@@ -7,6 +7,8 @@ import setoresRoutes from './routes/setores.routes.js';
 import solicitacoesRoutes from './routes/solicitacoes.routes.js';
 import historicoRoutes from './routes/historico.routes.js';
 import dashboardRoutes from './routes/dashboard.routes.js';
+import { getSupabase } from './lib/supabase.js';
+import { itensService } from './modules/itens/index.js';
 
 const app = express();
 
@@ -26,6 +28,49 @@ app.get('/api/health', (req, res) => {
     data: new Date().toISOString(),
     perfilRequisitante: req.perfil
   });
+});
+
+// Endpoint de diagnóstico para verificar conexão com banco e ambiente em produção
+app.get('/api/diagnostico', async (req, res) => {
+  const info = {
+    env: {
+      NODE_ENV: process.env.NODE_ENV || 'não definido',
+      DATA_SOURCE: process.env.DATA_SOURCE || 'não definido',
+      PORT: process.env.PORT || 'não definido',
+      hasSupabaseUrl: Boolean(process.env.SUPABASE_URL),
+      hasSupabaseKey: Boolean(process.env.SUPABASE_KEY),
+      hasSupabaseServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+      hasSupabaseAnonKey: Boolean(process.env.SUPABASE_ANON_KEY)
+    }
+  };
+
+  try {
+    const supabase = getSupabase();
+    if (!supabase) {
+      info.supabase = { status: 'null_client', motivo: 'Chaves ou URL não configuradas' };
+    } else {
+      const { data, error, count } = await supabase
+        .from('materiais')
+        .select('*', { count: 'exact', head: true });
+
+      info.supabase = {
+        status: error ? 'error' : 'connected',
+        totalMateriaisNoBanco: count,
+        error: error ? { message: error.message, code: error.code, details: error.details, hint: error.hint } : null
+      };
+    }
+  } catch (e) {
+    info.supabase = { status: 'exception', error: e.message };
+  }
+
+  try {
+    const itens = await itensService.consultarItens();
+    info.consultaItens = { status: 'ok', totalRetornado: itens.length };
+  } catch (e) {
+    info.consultaItens = { status: 'error', error: e.message, stack: e.stack };
+  }
+
+  res.json(info);
 });
 
 // Registro de rotas dos módulos
@@ -72,7 +117,9 @@ app.use((err, req, res, next) => {
 
   console.error('[ERRO INTERNO NÃO TRATADO]', err);
   return res.status(500).json({
-    erro: 'Ocorreu um erro interno no servidor. Tente novamente mais tarde.'
+    erro: 'Ocorreu um erro interno no servidor. Tente novamente mais tarde.',
+    mensagem: err.message || String(err),
+    detalhes: err.details || err.stack || null
   });
 });
 
