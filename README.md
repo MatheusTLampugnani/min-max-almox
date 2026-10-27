@@ -38,9 +38,11 @@ O sistema conecta o catálogo operacional do almoxarifado aos dados extraídos d
   - **Alinhados** (parâmetros já calibrados).
 - Ajuste rápido de Mínimo e Máximo com um clique para alinhamento imediato.
 
-### 4. Fluxo de Solicitações de Ajuste (Governança)
-- Supervisores podem solicitar alteração de Mín/Máx anexando o setor fabril demandante e a devida justificativa operacional.
-- O Almoxarifado Central possui visão consolidada de pendências, podendo **Aprovar**, **Recusar** ou **Ajustar** com atualização instantânea do catálogo.
+### 4. Fluxo de Solicitações de Ajuste (Filial ➔ Matriz com Notificação por E-mail)
+- **Abertura de Solicitação na Filial**: Supervisores ou Almoxarifes solicitam a alteração de Mín/Máx anexando justificativa operacional e setor solicitante.
+- **Notificação Automática por E-mail**: Assim que uma solicitação é gerada, o sistema dispara um e-mail com a ficha técnica do material para o **Almoxarifado**, o **Supervisor** e o **Coordenador da Filial** analisarem a proposta.
+- **Validação e Aprovação Local**: O Almoxarifado/Coordenação analisa o pedido no painel. Ao aprovar, o sistema reencaminha automaticamente um **e-mail estruturado ao Responsável pelas Alterações na Matriz** com cópia para a Coordenação.
+- **Efetivação no SAP**: A Matriz realiza a alteração oficial dos parâmetros de materiais no SAP. A filial pode confirmar a conclusão no sistema para atualizar os parâmetros locais.
 
 ### 5. Histórico e Trilha de Auditoria (Análise da Diretoria)
 - Registro cronológico de todas as alterações manuais e importações em lote do SAP.
@@ -134,6 +136,30 @@ npm run dev
 Este comando inicializa simultaneamente:
 - **Backend API**: `http://localhost:3001`
 - **Frontend App**: `http://localhost:5173`
+
+---
+
+## ✉️ Configuração de Notificações por E-mail (SMTP)
+
+O fluxo de aprovação de Mín/Máx entre a Filial e a Matriz opera com envio de e-mails automáticos. No arquivo `backend/.env`, configure as credenciais SMTP e os destinatários:
+
+```env
+# Servidor SMTP (Office 365, Google Workspace ou SMTP Corporativo Videplast)
+SMTP_HOST=smtp.office365.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=notificacoes@videplast.com.br
+SMTP_PASS=sua-senha-ou-app-password
+EMAIL_FROM=sistema.mrp@videplast.com.br
+
+# Destinatários do Fluxo
+EMAIL_ALMOXARIFADO=almoxarifado@videplast.com.br
+EMAIL_SUPERVISOR=supervisor@videplast.com.br
+EMAIL_COORDENADOR=coordenador@videplast.com.br
+EMAIL_MATRIZ=responsavel.matriz@videplast.com.br
+```
+
+> **Nota de Resiliência:** Caso o `SMTP_HOST` não seja preenchido ou esteja em ambiente de desenvolvimento/teste, o sistema ativa automaticamente o **Modo Simulação/Log**, formatando e exibindo a mensagem completa no terminal sem falhar ou interromper a requisição do usuário.
 
 ---
 

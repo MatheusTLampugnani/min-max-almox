@@ -1,6 +1,11 @@
 import { solicitacoesRepository } from './repository.js';
 import { itensService } from '../itens/index.js';
-import { NotFoundError, ValidationError } from '../shared/index.js';
+import {
+  NotFoundError,
+  ValidationError,
+  notificarNovaSolicitacao,
+  notificarAprovacaoParaMatriz
+} from '../shared/index.js';
 
 export const solicitacoesService = {
   async listar({ status = '' } = {}) {
@@ -48,6 +53,17 @@ export const solicitacoesService = {
       setor: setor || 'Produção'
     });
 
+    // 1. Notifica por e-mail a equipe da filial (Almoxarifado, Supervisor e Coordenador)
+    try {
+      await notificarNovaSolicitacao({
+        solicitacao: novaSolicitacao,
+        item
+      });
+    } catch (errEmail) {
+      console.warn('[EMAIL] Falha ao notificar criação de solicitação:', errEmail.message);
+    }
+
+    // 2. Registra no histórico de auditoria
     try {
       const { historicoService } = await import('../historico/index.js');
       await historicoService.registrar({
@@ -78,8 +94,9 @@ export const solicitacoesService = {
   },
 
   /**
-   * Aprova uma solicitação de alteração (Ação do Almoxarifado).
-   * Aplica imediatamente o novo mínimo e máximo ao cadastro do material.
+   * Aprovação Local da Filial (Almoxarifado / Coordenador).
+   * Como a filial não altera o SAP diretamente, esta etapa aprova internamente
+   * e REENCAMINHA automaticamente o e-mail para o responsável na MATRIZ realizar a alteração.
    */
   async aprovarSolicitacao(id, { respondidoPor = 'Almoxarifado' } = {}) {
     const sol = await solicitacoesRepository.buscarPorId(id);
@@ -91,23 +108,30 @@ export const solicitacoesService = {
       throw new ValidationError(`Esta solicitação já foi finalizada com o status '${sol.status}'.`);
     }
 
-    // Aplica os novos parâmetros no módulo de itens
-    await itensService.atualizarMinMax(sol.itemId, {
-      min: sol.novoMin,
-      max: sol.novoMax
-    });
-
-    // Atualiza o status da solicitação para aprovada
+    // Atualiza o status da solicitação para encaminhada_matriz
     const solicitacaoAtualizada = await solicitacoesRepository.atualizarStatus(id, {
-      status: 'aprovada',
-      respondidoPor
+      status: 'encaminhada_matriz',
+      respondidoPor,
+      dataAprovacaoFilial: new Date().toISOString(),
+      emailNotificacaoMatriz: true
     });
 
+    // Reencaminha e-mail detalhado com a aprovação para o Responsável pelas Alterações na Matriz
+    try {
+      await notificarAprovacaoParaMatriz({
+        solicitacao: sol,
+        respondidoPor
+      });
+    } catch (errEmail) {
+      console.warn('[EMAIL] Falha ao encaminhar aprovação para a matriz:', errEmail.message);
+    }
+
+    // Registra no histórico do sistema
     try {
       const { historicoService } = await import('../historico/index.js');
       await historicoService.registrar({
-        tipoAcao: 'solicitacao_aprovada',
-        titulo: 'Aprovação de Solicitação de Mín/Máx',
+        tipoAcao: 'solicitacao_aprovada_filial',
+        titulo: 'Aprovação pela Filial e Encaminhamento à Matriz',
         usuario: respondidoPor,
         perfil: 'almoxarifado',
         item: {
@@ -125,14 +149,74 @@ export const solicitacoesService = {
         justificativa: sol.justificativa
       });
     } catch (err) {
-      console.warn('[HISTORICO] Aviso ao registrar aprovação de solicitação:', err.message);
+      console.warn('[HISTORICO] Aviso ao registrar aprovação da filial:', err.message);
     }
 
     return solicitacaoAtualizada;
   },
 
   /**
-   * Recusa uma solicitação de alteração (Ação do Almoxarifado).
+   * Conclusão da Alteração no SAP pela Matriz.
+   * Quando o responsável da matriz realiza a alteração no SAP, a filial confirma
+   * a conclusão e os parâmetros são atualizados no sistema.
+   */
+  async concluirMatriz(id, { finalizadoPor = 'Almoxarifado' } = {}) {
+    const sol = await solicitacoesRepository.buscarPorId(id);
+    if (!sol) {
+      throw new NotFoundError(`Solicitação com ID '${id}' não encontrada.`);
+    }
+
+    if (sol.status !== 'encaminhada_matriz' && sol.status !== 'aprovada') {
+      throw new ValidationError(`Apenas solicitações encaminhadas à Matriz podem ser marcadas como concluídas.`);
+    }
+
+    // Atualiza os parâmetros no catálogo de itens local
+    try {
+      await itensService.atualizarMinMax(sol.itemId, {
+        min: sol.novoMin,
+        max: sol.novoMax
+      });
+    } catch (errItens) {
+      console.warn('[ITENS] Falha ao atualizar material no catálogo local:', errItens.message);
+    }
+
+    // Atualiza o status da solicitação para concluida
+    const solicitacaoAtualizada = await solicitacoesRepository.atualizarStatus(id, {
+      status: 'concluida',
+      concluidoPor: finalizadoPor,
+      dataConclusaoMatriz: new Date().toISOString()
+    });
+
+    try {
+      const { historicoService } = await import('../historico/index.js');
+      await historicoService.registrar({
+        tipoAcao: 'alteracao_sap_concluida',
+        titulo: 'Alteração Concluída no SAP pela Matriz',
+        usuario: finalizadoPor,
+        perfil: 'almoxarifado',
+        item: {
+          id: sol.itemId,
+          codigo: sol.itemCodigo,
+          nome: sol.itemNome,
+          unidade: sol.itemUnidade
+        },
+        alteracao: {
+          minAnterior: sol.minAtual,
+          maxAnterior: sol.maxAtual,
+          novoMin: sol.novoMin,
+          novoMax: sol.novoMax
+        },
+        justificativa: 'Alteração no SAP efetuada com sucesso pelo responsável da matriz.'
+      });
+    } catch (err) {
+      console.warn('[HISTORICO] Aviso ao registrar conclusão da matriz:', err.message);
+    }
+
+    return solicitacaoAtualizada;
+  },
+
+  /**
+   * Recusa uma solicitação de alteração (Ação do Almoxarifado / Coordenação).
    */
   async recusarSolicitacao(id, { respondidoPor = 'Almoxarifado', motivoRecusa = '' } = {}) {
     const sol = await solicitacoesRepository.buscarPorId(id);
@@ -179,3 +263,4 @@ export const solicitacoesService = {
     return solicitacaoAtualizada;
   }
 };
+

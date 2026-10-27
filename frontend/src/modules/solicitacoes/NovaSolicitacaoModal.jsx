@@ -5,6 +5,7 @@ import { Input } from '../../components/ui/Input.jsx';
 import { useToast } from '../../components/ui/Toast.jsx';
 import { api } from '../../lib/api.js';
 import { formatarQuantidade } from '../../lib/formatters.js';
+import { abrirOutlook, gerarEmailNovaSolicitacao, redirecionarParaEmail } from './emailOutlook.js';
 import { FileText, AlertCircle, Send, Check } from 'lucide-react';
 
 const SETORES_OPCOES = [
@@ -75,7 +76,34 @@ export function NovaSolicitacaoModal({
         setor
       });
 
-      addToast('Solicitação de alteração enviada com sucesso para o Almoxarifado!', 'sucesso');
+      // Abre automaticamente o Outlook com os dados preenchidos para notificar Almoxarifado, Supervisor e Coordenador
+      try {
+        const emailDados = gerarEmailNovaSolicitacao({
+
+          solicitacao: {
+            itemCodigo: item.codigo,
+            itemNome: item.nome,
+            itemUnidade: item.unidade,
+            minAtual: item.min,
+            maxAtual: item.max,
+            novoMin: minNum,
+            novoMax: maxNum,
+            solicitante: 'Supervisor',
+            setor,
+            justificativa: justificativa.trim()
+          },
+          item
+        });
+        redirecionarParaEmail(emailDados);
+      } catch (errOutlook) {
+        console.warn('Não foi possível disparar o Outlook automaticamente:', errOutlook);
+      }
+
+      addToast(
+        'Solicitação aberta! Redirecionando para o e-mail no Outlook pronto para revisar e enviar.',
+        'sucesso'
+      );
+
       if (onSucesso) onSucesso();
       onClose();
     } catch (err) {
@@ -94,11 +122,22 @@ export function NovaSolicitacaoModal({
       maxWidth="max-w-xl"
     >
       <form onSubmit={handleSubmit} className="space-y-4 text-left">
+        {/* Banner explicativo de fluxo */}
+        <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl text-xs text-blue-900 flex items-start gap-2.5">
+          <FileText className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+          <div className="leading-relaxed">
+            <strong>Fluxo Filial • Notificação por E-mail:</strong>
+            <p className="text-[11px] text-blue-800 mt-0.5">
+              Ao enviar, um e-mail é disparado para o <strong>Almoxarifado</strong>, <strong>Supervisor</strong> e <strong>Coordenador</strong> para análise. Após aprovação na filial, a solicitação é reencaminhada à <strong>Matriz</strong> para aplicação no SAP.
+            </p>
+          </div>
+        </div>
+
         {/* Resumo Atual */}
         <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-between text-xs">
           <div>
             <span className="text-slate-400 block font-semibold uppercase text-[10px]">
-              Parâmetros Atuais
+              Parâmetros Atuais no SAP
             </span>
             <div className="font-bold text-slate-800 mt-0.5">
               Mín: {formatarQuantidade(item.min, item.unidade)} • Máx: {formatarQuantidade(item.max, item.unidade)}
@@ -159,12 +198,12 @@ export function NovaSolicitacaoModal({
             rows={3}
             value={justificativa}
             onChange={(e) => setJustificativa(e.target.value)}
-            placeholder="Descreva o motivo da solicitação (ex: Aumento de produção previsto, alteração no ciclo de consumo, sazonalidade...)"
+            placeholder="Descreva o motivo da solicitação (ex: Aumento de produção previsto no próximo trimestre, ajuste no ciclo de consumo, sazonalidade...)"
             className="w-full rounded-corp border border-slate-200 bg-white text-slate-800 p-3 text-sm focus:border-videplast-primary focus:ring-1 focus:ring-videplast-primary outline-none resize-none placeholder-slate-400"
             required
           />
           <span className="text-[11px] text-slate-400 mt-1 block">
-            Esta justificativa será avaliada pelo time do Almoxarifado para aprovação.
+            Esta justificativa constará no e-mail de notificação e no histórico de auditoria.
           </span>
         </div>
 
@@ -181,7 +220,7 @@ export function NovaSolicitacaoModal({
           </Button>
           <Button variant="primary" size="md" type="submit" loading={enviando}>
             <Send className="w-4 h-4" />
-            Enviar Solicitação ao Almoxarifado
+            Enviar Solicitação e Notificar Equipe
           </Button>
         </div>
       </form>

@@ -15,13 +15,6 @@ if (typeof globalThis.WebSocket === 'undefined') {
 let supabaseClient = null;
 
 export function getSupabase() {
-  const dataSource = (process.env.DATA_SOURCE || '').toLowerCase().trim();
-
-  // Se configurado explicitamente como mock, não ativa o Supabase
-  if (dataSource === 'mock') {
-    return null;
-  }
-
   const supabaseUrl = (process.env.SUPABASE_URL || '').trim();
   const supabaseKey = (
     process.env.SUPABASE_SERVICE_ROLE_KEY ||

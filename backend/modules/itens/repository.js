@@ -1,67 +1,7 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { getSupabase } from '../../lib/supabase.js';
 import { formatarCategoria } from './categoriasSap.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const CAMINHO_JSON_PLANILHA = path.resolve(__dirname, '../../data_planilha_mrp.json');
-
-function subtrairDias(dias) {
-  const d = new Date();
-  d.setDate(d.getDate() - dias);
-  return d.toISOString();
-}
-
-function carregarItensDaPlanilha() {
-  try {
-    if (fs.existsSync(CAMINHO_JSON_PLANILHA)) {
-      const conteudo = fs.readFileSync(CAMINHO_JSON_PLANILHA, 'utf-8');
-      const dados = JSON.parse(conteudo);
-
-      return dados.map((item) => {
-        let min = Number(item.min) || 0;
-        let max = Number(item.max) || 0;
-        if (min >= max) {
-          max = min === 0 ? 10 : Math.round(min * 2);
-        }
-
-        const sugMin =
-          item.sugestaoMrpMin !== null && item.sugestaoMrpMin !== undefined
-            ? Math.round(Number(item.sugestaoMrpMin))
-            : null;
-        const sugMax =
-          item.sugestaoMrpMax !== null && item.sugestaoMrpMax !== undefined
-            ? Math.round(Number(item.sugestaoMrpMax))
-            : null;
-
-        return {
-          id: item.codigo || item.id,
-          codigo: String(item.codigo),
-          nome: item.nome,
-          categoria: item.categoria || 'Geral',
-          unidade: item.unidade || 'un',
-          min,
-          max,
-          saldo: Number(item.saldo) || 0,
-          sugestaoMrpMin: sugMin,
-          sugestaoMrpMax: sugMax,
-          consumoMedioPlanilha: Number(item.consumoMedioPlanilha) || 0,
-          consumo12Meses: Number(item.consumo12Meses) || 0,
-          endereco: item.endereco || 'A-01-01',
-          ativo: item.ativo !== false
-        };
-      });
-    }
-  } catch (err) {
-    console.error('[REPOSITORY] Erro ao carregar data_planilha_mrp.json:', err.message);
-  }
-  return [];
-}
-
-let itensMemoria = carregarItensDaPlanilha();
+let itensMemoria = [];
 let movimentacoesAvulsas = [];
 
 function mapLinhaBanco(row) {
@@ -268,7 +208,6 @@ export const itensRepository = {
     }
 
     if (!supabase) {
-      // Modo Mock Fallback em memória
       let novosCount = 0;
       let atualizadosCount = 0;
 
@@ -286,7 +225,7 @@ export const itensRepository = {
 
       return {
         sucesso: true,
-        loteId: 'mock-lote-' + Date.now(),
+        loteId: 'lote-' + Date.now(),
         totalRecebidos: itens.length,
         novos: novosCount,
         atualizados: atualizadosCount,
@@ -539,34 +478,11 @@ export const itensRepository = {
   },
 
   async listarSaidasPorItem(itemId) {
-    const item = await this.buscarPorCodigo(itemId);
     const avulsas = movimentacoesAvulsas.filter(
       (m) => m.itemId === itemId && m.tipo === 'saida'
     );
 
-    if (!item) return avulsas;
-
-    const mediaMensal = Number(item.consumoMedioPlanilha) || 10;
-    const saídasProjetadas = [];
-    const setores = ['extrusao', 'corte-solda', 'impressao', 'manutencao', 'expedicao'];
-
-    for (let i = 1; i <= 12; i++) {
-      const diasAtras = i * 15;
-      const fator = 0.85 + ((i * 7) % 30) / 100;
-      const qtd = Math.max(1, Math.round((mediaMensal / 2) * fator));
-      saídasProjetadas.push({
-        id: `mov-auto-${item.codigo}-${i}`,
-        itemId: item.codigo,
-        tipo: 'saida',
-        quantidade: qtd,
-        setorId: setores[(i + Number(String(item.codigo).slice(-2) || 0)) % setores.length],
-        data: subtrairDias(diasAtras),
-        usuario: 'almoxarifado',
-        observacao: 'Consumo registrado para ordem de produção'
-      });
-    }
-
-    return [...avulsas, ...saídasProjetadas].sort(
+    return avulsas.sort(
       (a, b) => new Date(b.data) - new Date(a.data)
     );
   },

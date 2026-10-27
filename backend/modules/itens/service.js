@@ -144,10 +144,7 @@ export const itensService = {
       const d = new Date(agora.getFullYear(), agora.getMonth() - i, 1);
       const chaveAnoMes = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       const rotuloMes = d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
-      // Projeta valor mensal baseado na média da planilha com variação orgânica
-      const fatorVariacao = 0.88 + ((i * 11 + Number(item.codigo.slice(-2) || 0)) % 25) / 100;
-      const totalProjetado = Math.round(mediaMensal * fatorVariacao);
-      mapaMeses.set(chaveAnoMes, { mes: rotuloMes, total: totalProjetado });
+      mapaMeses.set(chaveAnoMes, { mes: rotuloMes, total: Math.round(mediaMensal) });
     }
 
     // Sobrescreve com saídas reais se existirem

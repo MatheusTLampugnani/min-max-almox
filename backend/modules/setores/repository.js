@@ -1,4 +1,4 @@
-const SETORES_MOCK = [
+const SETORES = [
   { id: 'extrusao', nome: 'Extrusão', sigla: 'EXT' },
   { id: 'impressao', nome: 'Impressão', sigla: 'IMP' },
   { id: 'corte-solda', nome: 'Corte e Solda', sigla: 'CS' },
@@ -8,9 +8,9 @@ const SETORES_MOCK = [
 
 export const setoresRepository = {
   async listar() {
-    return [...SETORES_MOCK];
+    return [...SETORES];
   },
   async buscarPorId(id) {
-    return SETORES_MOCK.find((s) => s.id === id) || null;
+    return SETORES.find((s) => s.id === id) || null;
   }
 };

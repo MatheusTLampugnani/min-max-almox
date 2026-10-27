@@ -1,35 +1,46 @@
-/**
- * Repositório em memória para Solicitações de alteração de Mín/Máx.
- * Permite que supervisores solicitem alterações e o almoxarifado aprove/recuse.
- */
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-let solicitacoesMemoria = [
-  {
-    id: 'sol-001',
-    itemId: 'sap-3000516',
-    itemCodigo: '3000516',
-    itemNome: 'CAIXA PAP TAMPA 571X479X165MM ONDA SIMP',
-    itemUnidade: 'un',
-    minAtual: 5000,
-    maxAtual: 10000,
-    novoMin: 6000,
-    novoMax: 12000,
-    justificativa: 'Aumento na demanda projetada de exportação para o próximo trimestre. Necessário elevar o buffer de segurança.',
-    solicitante: 'Supervisor de Corte e Solda',
-    setor: 'Corte e Solda',
-    status: 'pendente',
-    dataCriacao: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    dataResposta: null,
-    respondidoPor: null,
-    motivoRecusa: null
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const ARQUIVO_SOLICITACOES = path.resolve(__dirname, '../../data_solicitacoes.json');
+
+function carregarSolicitacoesIniciais() {
+  try {
+    if (fs.existsSync(ARQUIVO_SOLICITACOES)) {
+      const conteudo = fs.readFileSync(ARQUIVO_SOLICITACOES, 'utf-8');
+      const dados = JSON.parse(conteudo);
+      if (Array.isArray(dados)) {
+        return dados;
+      }
+    }
+  } catch (err) {
+    console.warn('[SOLICITACOES] Aviso ao ler data_solicitacoes.json:', err.message);
   }
-];
+  return [];
+}
+
+let solicitacoesMemoria = carregarSolicitacoesIniciais();
+
+function salvarEmDisco() {
+  try {
+    fs.writeFileSync(ARQUIVO_SOLICITACOES, JSON.stringify(solicitacoesMemoria, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('[SOLICITACOES] Falha ao persistir data_solicitacoes.json:', err.message);
+  }
+}
 
 export const solicitacoesRepository = {
   async listar({ status = '' } = {}) {
     let lista = [...solicitacoesMemoria];
     if (status) {
-      lista = lista.filter((s) => s.status === status);
+      if (status === 'aprovada') {
+        // Compatibilidade com status anterior: abrange tanto 'aprovada' quanto 'encaminhada_matriz' e 'concluida'
+        lista = lista.filter((s) => s.status === 'aprovada' || s.status === 'encaminhada_matriz' || s.status === 'concluida');
+      } else {
+        lista = lista.filter((s) => s.status === status);
+      }
     }
     return lista.sort((a, b) => new Date(b.dataCriacao) - new Date(a.dataCriacao));
   },
@@ -51,27 +62,26 @@ export const solicitacoesRepository = {
       dataCriacao: new Date().toISOString(),
       dataResposta: null,
       respondidoPor: null,
-      motivoRecusa: null
+      motivoRecusa: null,
+      emailNotificacaoFilial: true,
+      emailNotificacaoMatriz: false
     };
     solicitacoesMemoria.unshift(novaSolicitacao);
+    salvarEmDisco();
     return { ...novaSolicitacao };
   },
 
-  async atualizarStatus(id, { status, respondidoPor, motivoRecusa = null }) {
+  async atualizarStatus(id, alteracoes = {}) {
     const index = solicitacoesMemoria.findIndex((s) => s.id === id);
     if (index === -1) return null;
 
     solicitacoesMemoria[index] = {
       ...solicitacoesMemoria[index],
-      status,
-      respondidoPor,
-      motivoRecusa,
-      dataResposta: new Date().toISOString()
+      ...alteracoes,
+      dataResposta: alteracoes.dataResposta || new Date().toISOString()
     };
+    salvarEmDisco();
     return { ...solicitacoesMemoria[index] };
-  },
-
-  _resetMock() {
-    solicitacoesMemoria = [];
   }
 };
+

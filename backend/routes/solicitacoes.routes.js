@@ -6,10 +6,30 @@ import {
   listarSolicitacoesQuerySchema,
   recusarSolicitacaoSchema
 } from '../modules/solicitacoes/index.js';
-import { getZodErrorMessage, ValidationError } from '../modules/shared/index.js';
+import { getZodErrorMessage, ValidationError, getEmailConfig } from '../modules/shared/index.js';
 import { requirePerfil, PERFIS } from '../modules/auth/index.js';
 
 const router = Router();
+
+// Obter status das configurações de e-mail e destinatários do fluxo
+router.get('/config/destinatarios', async (req, res, next) => {
+  try {
+    const config = getEmailConfig();
+    res.json({
+      smtpConfigurado: Boolean(config.smtp.host && config.smtp.auth.user),
+      smtpHost: config.smtp.host || 'Não configurado (modo de simulação/log ativo)',
+      remetente: config.from,
+      destinatarios: {
+        almoxarifado: config.recipients.almoxarifado,
+        supervisor: config.recipients.supervisor,
+        coordenador: config.recipients.coordenador,
+        matriz: config.recipients.matriz
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // Contador de solicitações pendentes (para o badge do header/menu)
 router.get('/pendentes/contador', async (req, res, next) => {
@@ -49,7 +69,7 @@ router.post(
 
       const novaSolicitacao = await solicitacoesService.criarSolicitacao(bodyResult.data);
       res.status(201).json({
-        mensagem: 'Solicitação de alteração enviada com sucesso para o Almoxarifado.',
+        mensagem: 'Solicitação criada! Notificação por e-mail enviada ao Almoxarifado, Supervisor e Coordenador.',
         data: novaSolicitacao
       });
     } catch (error) {
@@ -58,7 +78,7 @@ router.post(
   }
 );
 
-// Aprovar solicitação (Apenas Almoxarifado)
+// Aprovar solicitação na Filial e encaminhar para a Matriz (Almoxarifado ou Coordenação)
 router.post(
   '/:id/aprovar',
   requirePerfil(PERFIS.ALMOXARIFADO),
@@ -75,8 +95,34 @@ router.post(
       );
 
       res.json({
-        mensagem: 'Solicitação aprovada e novos parâmetros de estoque aplicados ao material com sucesso.',
+        mensagem: 'Solicitação aprovada pela filial! E-mail com os detalhes foi encaminhado ao responsável da Matriz para alteração no SAP.',
         data: solicitacaoAprovada
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Concluir solicitação após a Matriz efetuar a alteração no SAP
+router.post(
+  '/:id/concluir',
+  requirePerfil(PERFIS.ALMOXARIFADO),
+  async (req, res, next) => {
+    try {
+      const paramsResult = solicitacaoIdParamSchema.safeParse(req.params);
+      if (!paramsResult.success) {
+        throw new ValidationError(getZodErrorMessage(paramsResult.error));
+      }
+
+      const solicitacaoConcluida = await solicitacoesService.concluirMatriz(
+        paramsResult.data.id,
+        { finalizadoPor: req.perfil || 'Almoxarifado' }
+      );
+
+      res.json({
+        mensagem: 'Alteração no SAP confirmada! Parâmetros de estoque atualizados no sistema com sucesso.',
+        data: solicitacaoConcluida
       });
     } catch (error) {
       next(error);
@@ -117,3 +163,4 @@ router.post(
 );
 
 export default router;
+

@@ -1,39 +1,6 @@
 import { getSupabase } from '../../lib/supabase.js';
 
-function dataRelativa(horasAtras) {
-  const d = new Date();
-  d.setMinutes(d.getMinutes() - horasAtras * 60);
-  return d.toISOString();
-}
-
-let historicoMemoria = [
-  {
-    id: 'hist-001',
-    dataHora: dataRelativa(2),
-    tipoAcao: 'alteracao_min_max_direta',
-    titulo: 'Alteração Direta de Mín/Máx',
-    usuario: 'Almoxarifado Central (Operador)',
-    perfil: 'almoxarifado',
-    item: {
-      id: 'sap-3000516',
-      codigo: '3000516',
-      nome: 'CAIXA PAP TAMPA 571X479X165MM ONDA SIMP',
-      unidade: 'un',
-      categoria: 'Embalagem'
-    },
-    alteracao: {
-      minAnterior: 4500,
-      maxAnterior: 9000,
-      novoMin: 5000,
-      novoMax: 10000
-    },
-    saldoAnterior: 6200,
-    saldoNovo: 6200,
-    variacaoSaldo: 0,
-    justificativa: 'Ajuste operacional de alinhamento com a nova cadência da linha de corte e solda.',
-    motivoRecusa: null
-  }
-];
+const historicoMemoria = [];
 
 function mapLinhaHistorico(row) {
   const variacao = row.variacao_saldo !== null ? Number(row.variacao_saldo) : 0;

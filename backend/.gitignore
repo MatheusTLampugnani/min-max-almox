@@ -27,6 +27,7 @@ logs/
 *.xls
 *.csv
 scratch/
+data_solicitacoes.json
 
 # Testes e cobertura de código
 coverage/

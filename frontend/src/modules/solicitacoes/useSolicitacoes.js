@@ -8,6 +8,7 @@ export function useSolicitacoes() {
   const [filtroStatus, setFiltroStatus] = useState('');
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState(null);
+  const [configEmails, setConfigEmails] = useState(null);
 
   const { addToast } = useToast();
 
@@ -33,15 +34,32 @@ export function useSolicitacoes() {
     }
   }, [filtroStatus]);
 
+  const carregarConfigEmails = useCallback(async () => {
+    try {
+      const res = await api.get('/solicitacoes/config/destinatarios');
+      setConfigEmails(res.data);
+    } catch (err) {
+      console.warn('Não foi possível carregar config de e-mails:', err.message);
+    }
+  }, []);
+
   useEffect(() => {
     carregarSolicitacoes();
   }, [carregarSolicitacoes]);
 
-  // Aprovar solicitação
+  useEffect(() => {
+    carregarConfigEmails();
+  }, [carregarConfigEmails]);
+
+  // Aprovar solicitação na Filial (Reencaminha para a Matriz)
   const aprovarSolicitacao = async (id) => {
     try {
       const res = await api.post(`/solicitacoes/${id}/aprovar`);
-      addToast('Solicitação aprovada e novos parâmetros de estoque aplicados!', 'sucesso');
+      addToast(
+        res.data.mensagem ||
+          'Solicitação aprovada pela filial! E-mail encaminhado ao responsável da Matriz.',
+        'sucesso'
+      );
       carregarSolicitacoes();
       return res.data;
     } catch (err) {
@@ -50,11 +68,27 @@ export function useSolicitacoes() {
     }
   };
 
+  // Confirmar que a Matriz concluiu a alteração no SAP
+  const concluirSolicitacaoMatriz = async (id) => {
+    try {
+      const res = await api.post(`/solicitacoes/${id}/concluir`);
+      addToast(
+        res.data.mensagem || 'Alteração no SAP confirmada! Parâmetros atualizados no sistema.',
+        'sucesso'
+      );
+      carregarSolicitacoes();
+      return res.data;
+    } catch (err) {
+      addToast(err.message || 'Erro ao confirmar alteração da Matriz.', 'erro');
+      throw err;
+    }
+  };
+
   // Recusar solicitação
   const recusarSolicitacao = async (id, motivoRecusa = '') => {
     try {
       const res = await api.post(`/solicitacoes/${id}/recusar`, { motivoRecusa });
-      addToast('Solicitação recusada pelo Almoxarifado.', 'info');
+      addToast('Solicitação recusada pela Filial.', 'info');
       carregarSolicitacoes();
       return res.data;
     } catch (err) {
@@ -70,8 +104,11 @@ export function useSolicitacoes() {
     setFiltroStatus,
     carregando,
     erro,
+    configEmails,
     recarregar: carregarSolicitacoes,
     aprovarSolicitacao,
+    concluirSolicitacaoMatriz,
     recusarSolicitacao
   };
 }
+
