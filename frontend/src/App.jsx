@@ -13,7 +13,7 @@ export function App() {
   return (
     <AuthProvider>
       <ToastProvider>
-        <BrowserRouter>
+        <BrowserRouter basename={import.meta.env.BASE_URL}>
           <div className="min-h-screen bg-videplast-bg flex flex-col text-videplast-dark">
             <Header />
             <main className="flex-1 pb-12">

@@ -6,13 +6,22 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        # Publicado em https://imobilizados.tailbba2c4.ts.net/minmax/ (Nginx do servidor)
+        VITE_BASE_PATH: ${VITE_BASE_PATH:-minmax}
     container_name: videplast_estoque_mrp
-    restart: always
+    restart: unless-stopped
     ports:
-      # Porta mapeada no servidor 192.168.1.106
-      - "3001:3001"
+      # Só na máquina local: o Nginx do servidor aponta para cá (3001 já é do Imobilizados)
+      - "127.0.0.1:${MINMAX_PORTA:-8096}:3001"
     env_file:
       - ./backend/.env
     environment:
       - NODE_ENV=production
       - PORT=3001
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3001/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
