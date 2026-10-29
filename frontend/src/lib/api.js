@@ -1,12 +1,8 @@
 import axios from 'axios';
 
-<<<<<<< HEAD
-export const API_BASE_URL = '/api';
-export const STORAGE_KEY_USUARIO = 'videplast_usuario';
-=======
 // Acompanha o subcaminho de publicação (ex.: /minmax/api)
 export const API_BASE_URL = `${import.meta.env.BASE_URL}api`;
->>>>>>> 77f560be5b094337d6efa65e6e543be2b1969a0a
+export const STORAGE_KEY_USUARIO = 'videplast_usuario';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
