@@ -13,6 +13,8 @@ RUN npm install
 
 # Copia código-fonte e compila para produção
 COPY frontend/ ./
+# Subcaminho de publicação (ex.: minmax). Vazio = raiz do domínio
+ARG VITE_BASE_PATH=
 RUN npm run build
 
 # ==============================================================================

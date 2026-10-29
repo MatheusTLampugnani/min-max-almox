@@ -170,7 +170,12 @@ O projeto conta com arquivo `docker-compose.yml` e `Dockerfile` multi-stage para
 ```bash
 docker-compose up -d --build
 ```
-A aplicação estará disponível na porta configurada (`http://localhost:3001` ou IP do servidor).
+A aplicação estará disponível em `http://127.0.0.1:8096` (porta só local; a 3001 do servidor é do Imobilizados).
+
+### Publicação no servidor (portal `/acesso/`)
+Publicado em `https://imobilizados.tailbba2c4.ts.net/minmax/`, com o login do Portal de Acesso, no mesmo padrão dos outros sistemas:
+1. No portal (`/acesso/` → Sistemas protegidos), cadastre: código `minmax`, caminho `/minmax/`.
+2. No servidor: `bash deploy/publicar-servidor.sh` (sobe o container e adiciona o `location /minmax/` no Nginx, com backup e volta automática se der erro).
 
 ---
 

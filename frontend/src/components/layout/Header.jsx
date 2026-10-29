@@ -24,7 +24,7 @@ export function Header() {
             aria-label="Videplast - Página Inicial"
           >
             <img
-              src="/videplast-brand.png"
+              src={`${import.meta.env.BASE_URL}videplast-brand.png`}
               alt="Logo Videplast"
               className="h-7 sm:h-8 md:h-9 w-auto object-contain transition-all"
             />
