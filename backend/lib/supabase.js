@@ -16,12 +16,7 @@ let supabaseClient = null;
 
 export function getSupabase() {
   const supabaseUrl = (process.env.SUPABASE_URL || '').trim();
-  const supabaseKey = (
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
-    process.env.SUPABASE_KEY ||
-    ''
-  ).trim();
+  const supabaseKey = (process.env.SUPABASE_ANON_KEY || '').trim();
 
   if (!supabaseUrl || !supabaseKey) {
     return null;

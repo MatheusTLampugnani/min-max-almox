@@ -6,6 +6,7 @@ import { useToast } from '../../components/ui/Toast.jsx';
 import { api } from '../../lib/api.js';
 import { formatarQuantidade } from '../../lib/formatters.js';
 import { abrirOutlook, gerarEmailNovaSolicitacao, redirecionarParaEmail } from './emailOutlook.js';
+import { useAuth } from '../auth/useAuth.jsx';
 import { FileText, AlertCircle, Send, Check } from 'lucide-react';
 
 const SETORES_OPCOES = [
@@ -23,23 +24,25 @@ export function NovaSolicitacaoModal({
   onSucesso
 }) {
   const { addToast } = useToast();
+  const { nomeCompleto, cracha, setor: setorUsuario } = useAuth();
 
   const [novoMin, setNovoMin] = useState('');
   const [novoMax, setNovoMax] = useState('');
   const [justificativa, setJustificativa] = useState('');
-  const [setor, setSetor] = useState('Extrusão');
+  const [setor, setSetor] = useState(setorUsuario || 'Extrusão');
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState('');
 
-  // Ao abrir com um item, preenche sugestão inicial baseada no atual
+  // Ao abrir com um item, preenche sugestão inicial baseada no atual e setor do crachá
   React.useEffect(() => {
     if (item && isOpen) {
       setNovoMin(item.min.toString());
       setNovoMax(item.max.toString());
+      if (setorUsuario) setSetor(setorUsuario);
       setJustificativa('');
       setErro('');
     }
-  }, [item, isOpen]);
+  }, [item, isOpen, setorUsuario]);
 
   if (!item) return null;
 
@@ -65,6 +68,10 @@ export function NovaSolicitacaoModal({
       return;
     }
 
+    const nomeSolicitante = nomeCompleto
+      ? `${nomeCompleto}${cracha ? ` (Crachá ${cracha})` : ''}`
+      : 'Supervisor';
+
     try {
       setEnviando(true);
       await api.post('/solicitacoes', {
@@ -72,7 +79,7 @@ export function NovaSolicitacaoModal({
         novoMin: minNum,
         novoMax: maxNum,
         justificativa: justificativa.trim(),
-        solicitante: 'Supervisor',
+        solicitante: nomeSolicitante,
         setor
       });
 
@@ -88,7 +95,7 @@ export function NovaSolicitacaoModal({
             maxAtual: item.max,
             novoMin: minNum,
             novoMax: maxNum,
-            solicitante: 'Supervisor',
+            solicitante: nomeSolicitante,
             setor,
             justificativa: justificativa.trim()
           },
@@ -163,7 +170,7 @@ export function NovaSolicitacaoModal({
             onChange={(e) => setSetor(e.target.value)}
             className="w-full rounded-corp border border-slate-200 bg-white text-slate-800 px-3.5 py-2.5 text-sm focus:border-videplast-primary outline-none min-h-[44px]"
           >
-            {SETORES_OPCOES.map((s) => (
+            {Array.from(new Set([setorUsuario, ...SETORES_OPCOES].filter(Boolean))).map((s) => (
               <option key={s} value={s}>
                 {s}
               </option>

@@ -43,8 +43,11 @@ import {
 } from 'lucide-react';
 
 export function SolicitacoesPage() {
-  const { isAlmoxarifado } = useAuth();
+  const { isAlmoxarifado, nomeCompleto, setor: setorUsuario } = useAuth();
   const { addToast } = useToast();
+  const labelResponsavel = nomeCompleto
+    ? `${nomeCompleto} (${setorUsuario || 'Almoxarifado Filial'})`
+    : 'Almoxarifado Filial';
   const {
     solicitacoes,
     totalPendentes,
@@ -108,7 +111,7 @@ export function SolicitacoesPage() {
         await aprovarSolicitacao(solicitacaoAlvo.id);
         const emailDados = gerarEmailAprovacaoMatriz({
           solicitacao: solicitacaoAlvo,
-          respondidoPor: 'Matheus Lampugnani (Almoxarifado Filial)',
+          respondidoPor: labelResponsavel,
           customDestinatarios: destinatarios
         });
 
@@ -127,7 +130,7 @@ export function SolicitacoesPage() {
         await concluirSolicitacaoMatriz(solicitacaoAlvo.id);
         const emailDados = gerarEmailConclusaoSAP({
           solicitacao: solicitacaoAlvo,
-          finalizadoPor: 'Matheus Lampugnani (Almoxarifado Filial)',
+          finalizadoPor: labelResponsavel,
           customDestinatarios: destinatarios
         });
 
@@ -147,7 +150,7 @@ export function SolicitacoesPage() {
         const emailDados = gerarEmailRecusa({
           solicitacao: solicitacaoAlvo,
           motivoRecusa,
-          respondidoPor: 'Matheus Lampugnani (Almoxarifado Filial)',
+          respondidoPor: labelResponsavel,
           customDestinatarios: destinatarios
         });
 
@@ -197,8 +200,8 @@ export function SolicitacoesPage() {
   }
 
   const abasFiltro = [
-    { id: '', label: 'Todas as Solicitações' },
-    { id: 'pendente', label: 'Pendentes da Filial', contador: totalPendentes },
+    { id: '', label: isAlmoxarifado ? 'Todas as Solicitações' : 'Minhas Solicitações' },
+    { id: 'pendente', label: isAlmoxarifado ? 'Pendentes da Filial' : 'Minhas Pendentes', contador: totalPendentes },
     { id: 'encaminhada_matriz', label: 'Encaminhadas à Matriz' },
     { id: 'concluida', label: 'Concluídas no SAP' },
     { id: 'recusada', label: 'Recusadas' }
@@ -284,9 +287,13 @@ export function SolicitacoesPage() {
         ) : solicitacoes.length === 0 ? (
           <EmptyState
             icon={FileText}
-            title="Nenhuma solicitação encontrada"
-            description="Não há pedidos de alteração cadastrados para o filtro selecionado."
-            actionLabel="Ver Todas as Solicitações"
+            title={isAlmoxarifado ? 'Nenhuma solicitação encontrada' : 'Nenhuma solicitação aberta por você'}
+            description={
+              isAlmoxarifado
+                ? 'Não há pedidos de alteração cadastrados para o filtro selecionado.'
+                : 'Você só visualiza as solicitações que você mesmo abriu com seu crachá.'
+            }
+            actionLabel={isAlmoxarifado ? 'Ver Todas as Solicitações' : 'Ver Minhas Solicitações'}
             onAction={() => setFiltroStatus('')}
           />
         ) : (

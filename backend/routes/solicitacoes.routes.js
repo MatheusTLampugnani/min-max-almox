@@ -34,7 +34,11 @@ router.get('/config/destinatarios', async (req, res, next) => {
 // Contador de solicitações pendentes (para o badge do header/menu)
 router.get('/pendentes/contador', async (req, res, next) => {
   try {
-    const total = await solicitacoesService.contarPendentes();
+    const total = await solicitacoesService.contarPendentes({
+      perfil: req.perfil,
+      cracha: req.cracha,
+      usuario: req.usuario
+    });
     res.json({ totalPendentes: total });
   } catch (error) {
     next(error);
@@ -49,7 +53,12 @@ router.get('/', async (req, res, next) => {
       throw new ValidationError(getZodErrorMessage(queryResult.error));
     }
 
-    const solicitacoes = await solicitacoesService.listar(queryResult.data);
+    const solicitacoes = await solicitacoesService.listar({
+      ...queryResult.data,
+      perfil: req.perfil,
+      cracha: req.cracha,
+      usuario: req.usuario
+    });
     res.json({ data: solicitacoes });
   } catch (error) {
     next(error);
@@ -67,7 +76,10 @@ router.post(
         throw new ValidationError(getZodErrorMessage(bodyResult.error));
       }
 
-      const novaSolicitacao = await solicitacoesService.criarSolicitacao(bodyResult.data);
+      const novaSolicitacao = await solicitacoesService.criarSolicitacao({
+        ...bodyResult.data,
+        cracha: req.cracha
+      });
       res.status(201).json({
         mensagem: 'Solicitação criada! Notificação por e-mail enviada ao Almoxarifado, Supervisor e Coordenador.',
         data: novaSolicitacao
@@ -91,7 +103,7 @@ router.post(
 
       const solicitacaoAprovada = await solicitacoesService.aprovarSolicitacao(
         paramsResult.data.id,
-        { respondidoPor: req.perfil || 'Almoxarifado' }
+        { respondidoPor: req.usuario || req.perfil || 'Almoxarifado' }
       );
 
       res.json({
@@ -117,7 +129,7 @@ router.post(
 
       const solicitacaoConcluida = await solicitacoesService.concluirMatriz(
         paramsResult.data.id,
-        { finalizadoPor: req.perfil || 'Almoxarifado' }
+        { finalizadoPor: req.usuario || req.perfil || 'Almoxarifado' }
       );
 
       res.json({
@@ -147,7 +159,7 @@ router.post(
       const solicitacaoRecusada = await solicitacoesService.recusarSolicitacao(
         paramsResult.data.id,
         {
-          respondidoPor: req.perfil || 'Almoxarifado',
+          respondidoPor: req.usuario || req.perfil || 'Almoxarifado',
           motivoRecusa: motivo
         }
       );

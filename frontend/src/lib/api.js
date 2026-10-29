@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 export const API_BASE_URL = '/api';
+export const STORAGE_KEY_USUARIO = 'videplast_usuario';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -9,9 +10,34 @@ export const api = axios.create({
   }
 });
 
-// Interceptor para injetar o header x-perfil a partir do sessionStorage
+// Interceptor para injetar os dados do colaborador logado nos headers
 api.interceptors.request.use((config) => {
-  const perfilSalvo = sessionStorage.getItem('videplast_perfil') || 'almoxarifado';
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY_USUARIO);
+    if (raw) {
+      const usuario = JSON.parse(raw);
+      if (usuario?.perfil) {
+        config.headers['x-perfil'] = usuario.perfil;
+      }
+      if (usuario?.nomeCompleto) {
+        const labelUsuario = usuario.cracha
+          ? `${usuario.nomeCompleto} (Crachá: ${usuario.cracha})`
+          : usuario.nomeCompleto;
+        config.headers['x-usuario'] = encodeURIComponent(labelUsuario);
+      }
+      if (usuario?.cracha) {
+        config.headers['x-cracha'] = String(usuario.cracha);
+      }
+      if (usuario?.setor) {
+        config.headers['x-setor'] = encodeURIComponent(usuario.setor);
+      }
+      return config;
+    }
+  } catch {
+    // ignora falha de parse
+  }
+
+  const perfilSalvo = sessionStorage.getItem('videplast_perfil') || 'supervisor';
   config.headers['x-perfil'] = perfilSalvo;
   return config;
 });

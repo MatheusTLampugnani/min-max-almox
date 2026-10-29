@@ -7,6 +7,7 @@ import setoresRoutes from './routes/setores.routes.js';
 import solicitacoesRoutes from './routes/solicitacoes.routes.js';
 import historicoRoutes from './routes/historico.routes.js';
 import dashboardRoutes from './routes/dashboard.routes.js';
+import authRoutes from './routes/auth.routes.js';
 import { getSupabase } from './lib/supabase.js';
 import { itensService } from './modules/itens/index.js';
 
@@ -74,6 +75,7 @@ app.get('/api/diagnostico', async (req, res) => {
 });
 
 // Registro de rotas dos módulos
+app.use('/api/auth', authRoutes);
 app.use('/api/itens', itensRoutes);
 app.use('/api/setores', setoresRoutes);
 app.use('/api/solicitacoes', solicitacoesRoutes);

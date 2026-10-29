@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
+import { api, STORAGE_KEY_USUARIO } from '../../lib/api.js';
 
 export const PERFIS = {
   SUPERVISOR: 'supervisor',
@@ -12,25 +13,46 @@ export const ROTULOS_PERFIS = {
 
 const AuthContext = createContext(null);
 
-export function AuthProvider({ children }) {
-  const [perfil, setPerfilState] = useState(() => {
-    const salvo = sessionStorage.getItem('videplast_perfil');
-    if (salvo === PERFIS.SUPERVISOR || salvo === PERFIS.ALMOXARIFADO) {
-      return salvo;
+function carregarUsuarioSalvo() {
+  try {
+    const salvo = sessionStorage.getItem(STORAGE_KEY_USUARIO);
+    if (!salvo) return null;
+    const parsed = JSON.parse(salvo);
+    if (parsed && parsed.cracha && parsed.nomeCompleto && parsed.perfil) {
+      return parsed;
     }
-    return PERFIS.ALMOXARIFADO;
-  });
+  } catch {
+    // ignora sessão inválida
+  }
+  return null;
+}
 
-  const setPerfil = (novoPerfil) => {
-    sessionStorage.setItem('videplast_perfil', novoPerfil);
-    setPerfilState(novoPerfil);
+export function AuthProvider({ children }) {
+  const [usuario, setUsuario] = useState(() => carregarUsuarioSalvo());
+
+  const loginPorCracha = async (crachaInput) => {
+    const crachaLimpo = String(crachaInput || '').trim();
+    const res = await api.post('/auth/login', { cracha: crachaLimpo });
+    const dadosUsuario = res.data.data;
+
+    sessionStorage.setItem(STORAGE_KEY_USUARIO, JSON.stringify(dadosUsuario));
+    sessionStorage.setItem('videplast_perfil', dadosUsuario.perfil);
+    setUsuario(dadosUsuario);
+    return dadosUsuario;
   };
+
+  const logout = () => {
+    sessionStorage.removeItem(STORAGE_KEY_USUARIO);
+    sessionStorage.removeItem('videplast_perfil');
+    setUsuario(null);
+  };
+
+  const perfil = usuario?.perfil || PERFIS.SUPERVISOR;
+  const autenticado = Boolean(usuario);
 
   // Matriz de permissões por perfil (Supervisor e Almoxarifado)
   const permissoes = {
-    // Supervisor: consulta, detalhe + criar e acompanhar solicitações
     isSupervisor: perfil === PERFIS.SUPERVISOR,
-    // Almoxarifado: acesso total (gestão, aprovação, parâmetros, importação)
     isAlmoxarifado: perfil === PERFIS.ALMOXARIFADO,
 
     podeConsultar: true,
@@ -41,13 +63,18 @@ export function AuthProvider({ children }) {
     podeVerAnalise: true
   };
 
-
   return (
     <AuthContext.Provider
       value={{
+        usuario,
+        autenticado,
+        cracha: usuario?.cracha || '',
+        nomeCompleto: usuario?.nomeCompleto || '',
+        setor: usuario?.setor || '',
         perfil,
-        setPerfil,
-        rotuloPerfil: ROTULOS_PERFIS[perfil] || 'Usuário',
+        rotuloPerfil: ROTULOS_PERFIS[perfil] || 'Supervisor',
+        loginPorCracha,
+        logout,
         ...permissoes
       }}
     >

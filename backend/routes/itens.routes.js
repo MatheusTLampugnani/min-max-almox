@@ -60,7 +60,7 @@ router.post('/importar', requirePerfil(PERFIS.ALMOXARIFADO), async (req, res, ne
       throw new ValidationError('A lista de materiais para importação está vazia.');
     }
 
-    const usuario = req.headers['x-usuario'] || 'Almoxarifado Central';
+    const usuario = req.usuario || 'Almoxarifado Central';
     const resultado = await itensService.importarPlanilhaSap({
       itens,
       usuario,
@@ -112,7 +112,7 @@ router.patch(
         paramsResult.data.id,
         bodyResult.data,
         {
-          usuario: req.headers['x-usuario'] || 'Almoxarifado Central',
+          usuario: req.usuario || 'Almoxarifado Central',
           perfil: req.perfil || 'almoxarifado'
         }
       );

@@ -8,8 +8,8 @@ import {
 } from '../shared/index.js';
 
 export const solicitacoesService = {
-  async listar({ status = '' } = {}) {
-    return solicitacoesRepository.listar({ status });
+  async listar({ status = '', perfil = 'almoxarifado', cracha = '', usuario = '' } = {}) {
+    return solicitacoesRepository.listar({ status, perfil, cracha, usuario });
   },
 
   async buscarPorId(id) {
@@ -20,11 +20,11 @@ export const solicitacoesService = {
     return sol;
   },
 
-  async contarPendentes() {
-    return solicitacoesRepository.contarPendentes();
+  async contarPendentes({ perfil = 'almoxarifado', cracha = '', usuario = '' } = {}) {
+    return solicitacoesRepository.contarPendentes({ perfil, cracha, usuario });
   },
 
-  async criarSolicitacao({ itemId, novoMin, novoMax, justificativa, solicitante, setor }) {
+  async criarSolicitacao({ itemId, novoMin, novoMax, justificativa, solicitante, setor, cracha = '' }) {
     if (novoMin >= novoMax) {
       throw new ValidationError('O novo estoque mínimo deve ser menor que o novo estoque máximo.');
     }
@@ -39,6 +39,11 @@ export const solicitacoesService = {
       throw new NotFoundError(`Material com ID '${itemId}' não encontrado.`);
     }
 
+    let solicitanteFormatado = (solicitante || 'Supervisor').trim();
+    if (cracha && !solicitanteFormatado.includes(cracha)) {
+      solicitanteFormatado = `${solicitanteFormatado} (Crachá ${cracha})`;
+    }
+
     const novaSolicitacao = await solicitacoesRepository.criar({
       itemId: item.id,
       itemCodigo: item.codigo,
@@ -49,7 +54,7 @@ export const solicitacoesService = {
       novoMin,
       novoMax,
       justificativa: justificativa.trim(),
-      solicitante: solicitante || 'Supervisor',
+      solicitante: solicitanteFormatado,
       setor: setor || 'Produção'
     });
 

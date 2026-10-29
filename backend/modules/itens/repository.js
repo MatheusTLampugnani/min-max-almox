@@ -1,11 +1,50 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { getSupabase } from '../../lib/supabase.js';
 import { formatarCategoria } from './categoriasSap.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const ARQUIVO_ULTIMO_CONSUMO = path.join(__dirname, '../../data_ultimo_consumo.json');
+
+let mapaUltimoConsumo = {};
+try {
+  if (fs.existsSync(ARQUIVO_ULTIMO_CONSUMO)) {
+    mapaUltimoConsumo = JSON.parse(fs.readFileSync(ARQUIVO_ULTIMO_CONSUMO, 'utf-8')) || {};
+  }
+} catch (err) {
+  console.warn('[ITENS REPO] Erro ao ler data_ultimo_consumo.json:', err.message);
+}
+
+function salvarMapaUltimoConsumo() {
+  try {
+    fs.writeFileSync(ARQUIVO_ULTIMO_CONSUMO, JSON.stringify(mapaUltimoConsumo, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('[ITENS REPO] Erro ao salvar data_ultimo_consumo.json:', err.message);
+  }
+}
+
 let itensMemoria = [];
 let movimentacoesAvulsas = [];
+let colunaUltimoConsumoSuportada = null;
+
+async function verificarSuporteUltimoConsumo(supabase) {
+  if (!supabase) return false;
+  if (colunaUltimoConsumoSuportada !== null) return colunaUltimoConsumoSuportada;
+  try {
+    const { error } = await supabase.from('materiais').select('ultimo_consumo').limit(1);
+    colunaUltimoConsumoSuportada = !error;
+  } catch {
+    colunaUltimoConsumoSuportada = false;
+  }
+  return colunaUltimoConsumoSuportada;
+}
 
 function mapLinhaBanco(row) {
   if (!row) return null;
+  const cod = String(row.codigo).trim();
+  const enderecoRaw = row.endereco ? String(row.endereco).trim() : '';
   return {
     id: row.codigo,
     codigo: row.codigo,
@@ -19,7 +58,8 @@ function mapLinhaBanco(row) {
     sugestaoMrpMax: row.sugestao_mrp_max !== null ? Number(row.sugestao_mrp_max) : null,
     consumoMedioPlanilha: Number(row.consumo_medio) || 0,
     consumo12Meses: Number(row.consumo_12_meses) || 0,
-    endereco: row.endereco || 'A-01-01',
+    endereco: enderecoRaw && enderecoRaw !== 'A-01-01' ? enderecoRaw : 'Sem endereço',
+    ultimoConsumo: row.ultimo_consumo || mapaUltimoConsumo[cod] || null,
     ativo: row.ativo !== false,
     ultimaImportacaoEm: row.ultima_importacao_em,
     criadoEm: row.criado_em,
@@ -254,22 +294,47 @@ export const itensRepository = {
       console.warn('[IMPORTACAO] Aviso ao registrar em lotes_importacao:', err.message);
     }
 
+    // Atualiza mapa de último consumo (aba MC.9 coluna K)
+    let alterouUltimoConsumo = false;
+    for (const it of itens) {
+      const cod = String(it.codigo).trim();
+      if (it.ultimoConsumo !== undefined) {
+        if (it.ultimoConsumo) {
+          mapaUltimoConsumo[cod] = String(it.ultimoConsumo).trim();
+        } else {
+          delete mapaUltimoConsumo[cod];
+        }
+        alterouUltimoConsumo = true;
+      }
+    }
+    if (alterouUltimoConsumo) {
+      salvarMapaUltimoConsumo();
+    }
+
+    const suportaUltimoConsumo = await verificarSuporteUltimoConsumo(supabase);
+
     // 2. Preencher a tabela temporária (materiais_importacao_temp)
-    const linhasTemp = itens.map((it) => ({
-      lote_id: loteId,
-      codigo: String(it.codigo).trim(),
-      nome: it.nome || 'Material sem descrição',
-      categoria: it.categoria || 'Geral',
-      unidade: it.unidade || 'un',
-      saldo: Number(it.saldo) || 0,
-      min: Number(it.min) || 0,
-      max: Number(it.max) || 0,
-      sugestao_mrp_min: it.sugestaoMrpMin !== null && it.sugestaoMrpMin !== undefined ? Number(it.sugestaoMrpMin) : null,
-      sugestao_mrp_max: it.sugestaoMrpMax !== null && it.sugestaoMrpMax !== undefined ? Number(it.sugestaoMrpMax) : null,
-      consumo_medio: Number(it.consumoMedioPlanilha ?? it.consumoMedio) || 0,
-      consumo_12_meses: Number(it.consumo12Meses) || 0,
-      endereco: it.endereco || 'A-01-01'
-    }));
+    const linhasTemp = itens.map((it) => {
+      const linha = {
+        lote_id: loteId,
+        codigo: String(it.codigo).trim(),
+        nome: it.nome || 'Material sem descrição',
+        categoria: it.categoria || 'Geral',
+        unidade: it.unidade || 'un',
+        saldo: Number(it.saldo) || 0,
+        min: Number(it.min) || 0,
+        max: Number(it.max) || 0,
+        sugestao_mrp_min: it.sugestaoMrpMin !== null && it.sugestaoMrpMin !== undefined ? Number(it.sugestaoMrpMin) : null,
+        sugestao_mrp_max: it.sugestaoMrpMax !== null && it.sugestaoMrpMax !== undefined ? Number(it.sugestaoMrpMax) : null,
+        consumo_medio: Number(it.consumoMedioPlanilha ?? it.consumoMedio) || 0,
+        consumo_12_meses: Number(it.consumo12Meses) || 0,
+        endereco: it.endereco && String(it.endereco).trim() !== 'A-01-01' ? String(it.endereco).trim() : 'Sem endereço'
+      };
+      if (suportaUltimoConsumo) {
+        linha.ultimo_consumo = it.ultimoConsumo || null;
+      }
+      return linha;
+    });
 
     // Inserção em lotes de 200 na staging
     const BATCH_SIZE = 200;
@@ -336,7 +401,7 @@ export const itensRepository = {
           ? item.unidade
           : (existente.unidade || 'un');
 
-        materiaisParaAtualizar.push({
+        const dadosAtualizacao = {
           codigo: item.codigo,
           nome: item.nome || existente.nome,
           categoria: categoriaFinal,
@@ -348,11 +413,15 @@ export const itensRepository = {
           sugestao_mrp_max: item.sugestao_mrp_max,
           consumo_medio: consumoMedio,
           consumo_12_meses: consumo12M,
-          endereco: item.endereco && item.endereco !== 'A-01-01' ? item.endereco : (existente.endereco || 'A-01-01'),
+          endereco: item.endereco || 'Sem endereço',
           ativo: true,
           ultima_importacao_em: agora,
           atualizado_em: agora
-        });
+        };
+        if (suportaUltimoConsumo) {
+          dadosAtualizacao.ultimo_consumo = item.ultimo_consumo || mapaUltimoConsumo[codigo] || null;
+        }
+        materiaisParaAtualizar.push(dadosAtualizacao);
 
         // Grava no histórico permanente para análise da diretoria
         logsHistorico.push({
@@ -378,7 +447,7 @@ export const itensRepository = {
         // Item NOVO -> Insere no catálogo
         const saldoNovo = Number(item.saldo) || 0;
 
-        materiaisParaInserir.push({
+        const dadosInsercao = {
           codigo: item.codigo,
           nome: item.nome,
           categoria: formatarCategoria(item.categoria),
@@ -390,12 +459,16 @@ export const itensRepository = {
           sugestao_mrp_max: item.sugestao_mrp_max,
           consumo_medio: consumoMedio,
           consumo_12_meses: consumo12M,
-          endereco: item.endereco || 'A-01-01',
+          endereco: item.endereco || 'Sem endereço',
           ativo: true,
           criado_em: agora,
           atualizado_em: agora,
           ultima_importacao_em: agora
-        });
+        };
+        if (suportaUltimoConsumo) {
+          dadosInsercao.ultimo_consumo = item.ultimo_consumo || mapaUltimoConsumo[codigo] || null;
+        }
+        materiaisParaInserir.push(dadosInsercao);
 
         logsHistorico.push({
           codigo_material: item.codigo,

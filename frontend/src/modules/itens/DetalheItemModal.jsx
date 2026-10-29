@@ -169,15 +169,29 @@ export function DetalheItemModal({
           {/* Bloco 2: Localização e Faixas de Min/Máx Atuais com Ações por Perfil */}
           <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200/90 shadow-xs">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-sm text-slate-700">
-                <div className="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center text-videplast-brand shrink-0">
-                  <MapPin className="w-4 h-4" />
+              <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-sm text-slate-700">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center text-videplast-brand shrink-0">
+                    <MapPin className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs text-slate-400 block font-medium">Localização Física no Almoxarifado:</span>
+                    <span className="font-bold text-slate-800 text-sm">
+                      {item.endereco || 'Sem endereço'}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-xs text-slate-400 block font-medium">Localização Física no Almoxarifado:</span>
-                  <span className="font-bold text-slate-800 text-sm">
-                    {item.endereco}
-                  </span>
+
+                <div className="flex items-center gap-2 sm:pl-4 sm:border-l border-slate-200">
+                  <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 shrink-0">
+                    <Calendar className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs text-slate-400 block font-medium">Data do Último Consumo:</span>
+                    <span className="font-bold text-slate-800 text-sm">
+                      {item.ultimoConsumo || 'Sem registro'}
+                    </span>
+                  </div>
                 </div>
               </div>
 

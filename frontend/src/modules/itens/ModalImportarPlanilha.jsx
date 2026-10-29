@@ -52,6 +52,25 @@ function converterNumeroPtBr(valor) {
   return isNaN(num) ? 0 : num;
 }
 
+function formatarDataPlanilha(val) {
+  if (val === null || val === undefined || val === '') return null;
+  if (typeof val === 'number' && val > 20000) {
+    // Serial date do Excel
+    const utcDays = Math.floor(val - 25569);
+    const d = new Date(utcDays * 86400 * 1000);
+    const dia = String(d.getUTCDate()).padStart(2, '0');
+    const mes = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const ano = d.getUTCFullYear();
+    return `${dia}/${mes}/${ano}`;
+  }
+  const str = String(val).trim();
+  if (!str || str === '00.00.0000' || str === '0') return null;
+  if (/^\d{2}\.\d{2}\.\d{4}$/.test(str)) {
+    return str.replace(/\./g, '/');
+  }
+  return str;
+}
+
 export function ModalImportarPlanilha({ isOpen, onClose, onImportadoComSucesso }) {
   const { mostrarToast } = useToast();
   const fileInputRef = useRef(null);
@@ -117,6 +136,25 @@ export function ModalImportarPlanilha({ isOpen, onClose, onImportadoComSucesso }
         }
       } catch (err) {
         console.warn('[IMPORTACAO] Aviso ao ler MB52:', err);
+      }
+    }
+
+    // Dicionário da aba MC.9 para capturar a Data de Último Consumo (Coluna K = índice 10)
+    const mapaMC9 = new Map();
+    const nomeAbaMC9 = wb.SheetNames?.find((n) => n.trim().toUpperCase() === 'MC.9');
+    if (nomeAbaMC9 && wb.Sheets[nomeAbaMC9]) {
+      try {
+        const linhasMC9 = XLSX.utils.sheet_to_json(wb.Sheets[nomeAbaMC9], { header: 1, defval: '' });
+        for (let r = 1; r < linhasMC9.length; r++) {
+          const l = linhasMC9[r];
+          const cod = String(l[0] || '').trim();
+          const ultConsumoFormatado = formatarDataPlanilha(l[10]);
+          if (cod && ultConsumoFormatado) {
+            mapaMC9.set(cod, ultConsumoFormatado);
+          }
+        }
+      } catch (err) {
+        console.warn('[IMPORTACAO] Aviso ao ler MC.9:', err);
       }
     }
 
@@ -282,18 +320,23 @@ export function ModalImportarPlanilha({ isOpen, onClose, onImportadoComSucesso }
           continue;
         }
 
-        // Categoria
-        if (idxCategoria === -1 && /categoria|grupo|familia|tipo/i.test(sub)) {
+        // Categoria / Estrutura
+        if (idxCategoria === -1 && /estrutura|categoria|grupo|familia|tipo/i.test(sub)) {
           idxCategoria = col;
           continue;
         }
 
-        // Endereço
+        // Endereço (na aba MRP fica na coluna D = índice 3)
         if (idxEndereco === -1 && /endereco|posicao|localizacao|rua|deposito/i.test(sub)) {
           idxEndereco = col;
           continue;
         }
       }
+    }
+
+    // Na aba MRP, garante que o endereço seja lido da coluna D (índice 3)
+    if (nomeAba.trim().toUpperCase() === 'MRP') {
+      idxEndereco = 3;
     }
 
     // Se código foi achado mas descrição não, tenta a coluna imediatamente à direita do código
@@ -351,7 +394,11 @@ export function ModalImportarPlanilha({ isOpen, onClose, onImportadoComSucesso }
       const unidade = (idxUnidade !== -1 && linha[idxUnidade] ? String(linha[idxUnidade]).trim() : null) || infoMB52.unidade || 'un';
       const catBruta = (idxCategoria !== -1 && linha[idxCategoria] ? String(linha[idxCategoria]).trim() : null) || infoMB52.grupo || 'Geral';
       const categoria = formatarCategoria(catBruta);
-      const endereco = idxEndereco !== -1 && linha[idxEndereco] ? String(linha[idxEndereco]).trim() : 'A-01-01';
+      const enderecoCelula = idxEndereco !== -1 && linha[idxEndereco] !== undefined && linha[idxEndereco] !== null
+        ? String(linha[idxEndereco]).trim()
+        : '';
+      const endereco = enderecoCelula || 'Sem endereço';
+      const ultimoConsumo = mapaMC9.get(codCru) || null;
 
       itensMapeados.push({
         codigo: codCru,
@@ -366,6 +413,7 @@ export function ModalImportarPlanilha({ isOpen, onClose, onImportadoComSucesso }
         consumoMedioPlanilha,
         consumo12Meses,
         endereco,
+        ultimoConsumo,
         distorcao
       });
     }
@@ -739,6 +787,8 @@ export function ModalImportarPlanilha({ isOpen, onClose, onImportadoComSucesso }
                           <tr>
                             <th className="px-3 py-2">Código</th>
                             <th className="px-3 py-2">Descrição</th>
+                            <th className="px-3 py-2">Endereço</th>
+                            <th className="px-3 py-2">Últ. Consumo</th>
                             <th className="px-3 py-2 text-right">Consumo 12M</th>
                             <th className="px-3 py-2 text-right">Mín Atual</th>
                             <th className="px-3 py-2 text-right">Máx Atual</th>
@@ -756,8 +806,14 @@ export function ModalImportarPlanilha({ isOpen, onClose, onImportadoComSucesso }
                                 <td className="px-3 py-2 font-mono font-bold text-slate-800">
                                   {item.codigo}
                                 </td>
-                                <td className="px-3 py-2 font-medium text-slate-800 max-w-[200px] truncate" title={item.nome}>
+                                <td className="px-3 py-2 font-medium text-slate-800 max-w-[180px] truncate" title={item.nome}>
                                   {item.nome}
+                                </td>
+                                <td className="px-3 py-2 text-slate-700 font-mono">
+                                  {item.endereco || '-'}
+                                </td>
+                                <td className="px-3 py-2 text-slate-600 font-mono">
+                                  {item.ultimoConsumo || '-'}
                                 </td>
                                 <td className="px-3 py-2 text-right text-slate-600 font-mono">
                                   {item.consumo12Meses ? item.consumo12Meses.toLocaleString('pt-BR') : '-'}
